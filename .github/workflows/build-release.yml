@@ -20,8 +20,9 @@ jobs:
       - name: Run unit tests
         working-directory: builder
         run: |
-          python3 -m pip install --user pytest
-          python3 -m pytest -q
+          python3 -m venv /tmp/mirror-drive-venv
+          /tmp/mirror-drive-venv/bin/pip install pytest
+          /tmp/mirror-drive-venv/bin/python -m pytest -q
 
       - name: Build clean Debian live ISO
         run: |
