@@ -19,12 +19,22 @@ jobs:
 
       - name: Test and build clean Debian live ISO
         run: |
+          set -o pipefail
           chmod +x builder/build-iso.sh
           docker run --rm --privileged \
             -v "$GITHUB_WORKSPACE:/work" \
             -w /work/builder \
             debian:trixie \
-            bash -lc 'apt-get update && apt-get install -y live-build python3-pytest && python3 -m pytest -q && ./build-iso.sh'
+            bash -lc 'apt-get update && apt-get install -y live-build python3-pytest && python3 -m pytest -q && ./build-iso.sh' \
+            2>&1 | tee /tmp/mirror-build.log
+          build_status=${PIPESTATUS[0]}
+          {
+            echo '### Mirror Drive build log (last 150 lines)'
+            echo '```text'
+            tail -n 150 /tmp/mirror-build.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$build_status"
 
       - name: Verify ISO metadata and checksum
         working-directory: builder
