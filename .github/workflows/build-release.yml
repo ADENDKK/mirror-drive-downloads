@@ -77,6 +77,7 @@ jobs:
           sleep 120
           printf 'screendump /tmp/mirror-drive-boot.ppm\nquit\n' | socat - UNIX-CONNECT:/tmp/mirror-monitor
           wait "$qemu_pid" || true
+          cp /tmp/mirror-serial.log Mirror-Drive-serial.log
           python3 - <<'PY'
           from PIL import Image, ImageStat
 
@@ -91,6 +92,19 @@ jobs:
               raise SystemExit(f'Boot stopped before the light Mirror Drive UI: {mean_brightness:.1f}')
           print(f'Captured Mirror Drive screen: {image.size}, brightness {mean_brightness:.1f}')
           PY
+
+      - name: Publish boot diagnostics on release failure
+        if: failure() && startsWith(github.ref, 'refs/tags/v')
+        working-directory: builder
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp Mirror-Drive-boot.png "Mirror-Drive-boot-${GITHUB_REF_NAME}-debug.png"
+          cp Mirror-Drive-serial.log "Mirror-Drive-serial-${GITHUB_REF_NAME}-debug.log"
+          gh release upload v0.1.1 \
+            "Mirror-Drive-boot-${GITHUB_REF_NAME}-debug.png" \
+            "Mirror-Drive-serial-${GITHUB_REF_NAME}-debug.log" \
+            --clobber
 
       - name: Update v0.1.1 boot proof
         if: always() && startsWith(github.ref, 'refs/tags/bootcheck-')

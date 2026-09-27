@@ -31,13 +31,13 @@ class MirrorDriveApp:
         self.root = root
         self.root.title("Mirror Drive | Plainloop Labs")
         self.root.configure(bg=PAGE)
-        self.root.attributes("-fullscreen", fullscreen)
         if fullscreen:
             width = self.root.winfo_screenwidth()
             height = self.root.winfo_screenheight()
-            self.root.geometry(f"{width}x{height}+0+0")
             self.root.overrideredirect(True)
+            self.root.geometry(f"{width}x{height}+0+0")
         else:
+            self.root.attributes("-fullscreen", False)
             self.root.geometry("1280x800")
         self.root.minsize(900, 650)
         self.canvas = tk.Canvas(root, bg=PAGE, highlightthickness=0)
