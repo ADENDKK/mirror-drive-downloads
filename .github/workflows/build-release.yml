@@ -17,21 +17,14 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Run unit tests
-        working-directory: builder
-        run: |
-          python3 -m venv /tmp/mirror-drive-venv
-          /tmp/mirror-drive-venv/bin/pip install pytest
-          /tmp/mirror-drive-venv/bin/python -m pytest -q
-
-      - name: Build clean Debian live ISO
+      - name: Test and build clean Debian live ISO
         run: |
           chmod +x builder/build-iso.sh
           docker run --rm --privileged \
             -v "$GITHUB_WORKSPACE:/work" \
             -w /work/builder \
             debian:trixie \
-            bash -lc 'apt-get update && apt-get install -y live-build && ./build-iso.sh'
+            bash -lc 'apt-get update && apt-get install -y live-build python3-pytest && python3 -m pytest -q && ./build-iso.sh'
 
       - name: Verify ISO metadata and checksum
         working-directory: builder
