@@ -74,7 +74,23 @@ jobs:
           done
           sleep 30
           printf 'sendkey ret\n' | socat - UNIX-CONNECT:/tmp/mirror-monitor
-          sleep 120
+          mirror_ready=0
+          for attempt in $(seq 1 15); do
+            sleep 20
+            printf 'screendump /tmp/mirror-drive-boot.ppm\n' | socat - UNIX-CONNECT:/tmp/mirror-monitor
+            if python3 - <<'PY'
+          from PIL import Image, ImageStat
+
+          image = Image.open('/tmp/mirror-drive-boot.ppm').convert('RGB')
+          mean_brightness = sum(ImageStat.Stat(image).mean) / 3
+          print(f'Boot poll brightness: {mean_brightness:.1f}')
+          raise SystemExit(0 if mean_brightness >= 100 else 1)
+          PY
+            then
+              mirror_ready=1
+              break
+            fi
+          done
           printf 'screendump /tmp/mirror-drive-boot.ppm\nquit\n' | socat - UNIX-CONNECT:/tmp/mirror-monitor
           wait "$qemu_pid" || true
           cp /tmp/mirror-serial.log Mirror-Drive-serial.log
@@ -92,6 +108,7 @@ jobs:
               raise SystemExit(f'Boot stopped before the light Mirror Drive UI: {mean_brightness:.1f}')
           print(f'Captured Mirror Drive screen: {image.size}, brightness {mean_brightness:.1f}')
           PY
+          test "$mirror_ready" -eq 1
 
       - name: Publish boot diagnostics on release failure
         if: failure() && startsWith(github.ref, 'refs/tags/v')
