@@ -1,0 +1,4 @@
+#!/bin/sh
+export PYTHONPATH=/opt/mirror-drive/src
+exec python3 -m mirror_drive.cli "$@"
+

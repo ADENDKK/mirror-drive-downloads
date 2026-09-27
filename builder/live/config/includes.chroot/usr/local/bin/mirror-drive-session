@@ -1,0 +1,8 @@
+#!/bin/sh
+export HOME=/root
+if command -v xinit >/dev/null 2>&1; then
+    xinit /usr/local/bin/mirror-drive-gui -- :0 vt1 -nolisten tcp -nocursor
+fi
+clear
+echo "Mirror Drive graphical mode was unavailable. Starting safe console mode."
+exec /usr/local/bin/mirror-drive

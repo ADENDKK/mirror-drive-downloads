@@ -1,0 +1,99 @@
+name: Build and verify Mirror Drive
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Run unit tests
+        working-directory: builder
+        run: |
+          python3 -m pip install --user pytest
+          python3 -m pytest -q
+
+      - name: Build clean Debian live ISO
+        run: |
+          chmod +x builder/build-iso.sh
+          docker run --rm --privileged \
+            -v "$GITHUB_WORKSPACE:/work" \
+            -w /work/builder \
+            debian:trixie \
+            bash -lc 'apt-get update && apt-get install -y live-build && ./build-iso.sh'
+
+      - name: Verify ISO metadata and checksum
+        working-directory: builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xorriso
+          xorriso -indev Mirror-Drive-amd64.iso -pvd_info
+          xorriso -indev Mirror-Drive-amd64.iso -report_el_torito plain
+          sha256sum Mirror-Drive-amd64.iso > Mirror-Drive-amd64.iso.sha256
+
+      - name: Boot ISO and capture screen
+        working-directory: builder
+        run: |
+          sudo apt-get install -y qemu-system-x86 socat python3-pil
+          truncate -s 4G /tmp/mirror-source.img
+          truncate -s 6G /tmp/mirror-target.img
+          qemu-system-x86_64 \
+            -m 2048 \
+            -cdrom Mirror-Drive-amd64.iso \
+            -drive file=/tmp/mirror-source.img,format=raw,if=virtio \
+            -drive file=/tmp/mirror-target.img,format=raw,if=virtio \
+            -display none \
+            -monitor unix:/tmp/mirror-monitor,server,nowait \
+            -serial file:/tmp/mirror-serial.log \
+            -no-reboot &
+          qemu_pid=$!
+          for attempt in $(seq 1 30); do
+            [ -S /tmp/mirror-monitor ] && break
+            sleep 1
+          done
+          sleep 55
+          printf 'screendump /tmp/mirror-drive-boot.ppm\nquit\n' | socat - UNIX-CONNECT:/tmp/mirror-monitor
+          wait "$qemu_pid" || true
+          python3 - <<'PY'
+          from PIL import Image, ImageStat
+
+          image = Image.open('/tmp/mirror-drive-boot.ppm').convert('RGB')
+          if image.width < 640 or image.height < 480:
+              raise SystemExit(f'Unexpected boot screenshot size: {image.size}')
+          if sum(ImageStat.Stat(image).var) < 10:
+              raise SystemExit('Boot screenshot is blank')
+          image.save('Mirror-Drive-boot.png')
+          print(f'Captured boot screen: {image.size}')
+          PY
+
+      - name: Upload verified build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mirror-Drive-amd64-${{ github.ref_name }}
+          path: |
+            builder/Mirror-Drive-amd64.iso
+            builder/Mirror-Drive-amd64.iso.sha256
+            builder/Mirror-Drive-boot.png
+
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/')
+        working-directory: builder
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            Mirror-Drive-amd64.iso \
+            Mirror-Drive-amd64.iso.sha256 \
+            Mirror-Drive-boot.png \
+            --title "Mirror Drive $GITHUB_REF_NAME" \
+            --notes "Bootable Mirror Drive disk-cloning environment. The ISO passed unit, metadata and virtual boot-screen checks."

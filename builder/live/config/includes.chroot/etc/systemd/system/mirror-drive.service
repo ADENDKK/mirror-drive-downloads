@@ -1,0 +1,21 @@
+[Unit]
+Description=Plainloop Mirror Drive
+After=systemd-udev-settle.service
+Wants=systemd-udev-settle.service
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/mirror-drive-session
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+Environment=HOME=/root
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

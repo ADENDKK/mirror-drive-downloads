@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+fc-cache -f
+systemctl enable mirror-drive.service

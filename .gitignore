@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+builder/live/.build/
+builder/live/cache/
+builder/live/chroot/
+builder/live/binary/
+builder/live/.stage/
+builder/live/*.iso
+builder/Mirror-Drive-amd64.iso
+builder/Mirror-Drive-amd64.iso.sha256
+builder/Mirror-Drive-boot.png
+
+# live-build creates Linux-only links and generated defaults here. Keep only
+# Mirror Drive's authored package list, hook and filesystem overlay.
+builder/live/config/*
+!builder/live/config/package-lists/
+builder/live/config/package-lists/*
+!builder/live/config/package-lists/mirror-drive.list.chroot
+!builder/live/config/hooks/
+builder/live/config/hooks/*
+!builder/live/config/hooks/normal/
+builder/live/config/hooks/normal/*
+!builder/live/config/hooks/normal/010-enable-mirror-drive.hook.chroot
+!builder/live/config/includes.chroot/
