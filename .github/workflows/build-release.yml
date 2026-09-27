@@ -25,7 +25,7 @@ jobs:
             -v "$GITHUB_WORKSPACE:/work" \
             -w /work/builder \
             debian:trixie \
-            bash -lc 'apt-get update && apt-get install -y live-build python3-pytest && python3 -m pytest -q && ./build-iso.sh' \
+            bash -lc 'apt-get update && apt-get install -y live-build python3-pytest python3-tk && python3 -m pytest -q && ./build-iso.sh' \
             2>&1 | tee /tmp/mirror-build.log
           build_status=${PIPESTATUS[0]}
           {
