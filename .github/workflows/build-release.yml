@@ -19,6 +19,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Test and build clean Debian live ISO
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           set -o pipefail
           chmod +x builder/build-iso.sh
@@ -36,6 +37,11 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$build_status"
+
+      - name: Download published ISO for boot check
+        if: startsWith(github.ref, 'refs/tags/bootcheck-')
+        working-directory: builder
+        run: curl -L --fail --retry 3 -o Mirror-Drive-amd64.iso https://github.com/ADENDKK/mirror-drive-downloads/releases/download/v0.1.1/Mirror-Drive-amd64.iso
 
       - name: Verify ISO metadata and checksum
         working-directory: builder
@@ -66,15 +72,16 @@ jobs:
             [ -S /tmp/mirror-monitor ] && break
             sleep 1
           done
-          sleep 8
+          sleep 30
           printf 'sendkey ret\n' | socat - UNIX-CONNECT:/tmp/mirror-monitor
-          sleep 80
+          sleep 120
           printf 'screendump /tmp/mirror-drive-boot.ppm\nquit\n' | socat - UNIX-CONNECT:/tmp/mirror-monitor
           wait "$qemu_pid" || true
           python3 - <<'PY'
           from PIL import Image, ImageStat
 
           image = Image.open('/tmp/mirror-drive-boot.ppm').convert('RGB')
+          image.save('Mirror-Drive-boot.png')
           if image.width < 640 or image.height < 480:
               raise SystemExit(f'Unexpected boot screenshot size: {image.size}')
           if sum(ImageStat.Stat(image).var) < 10:
@@ -82,12 +89,11 @@ jobs:
           mean_brightness = sum(ImageStat.Stat(image).mean) / 3
           if mean_brightness < 100:
               raise SystemExit(f'Boot stopped before the light Mirror Drive UI: {mean_brightness:.1f}')
-          image.save('Mirror-Drive-boot.png')
           print(f'Captured Mirror Drive screen: {image.size}, brightness {mean_brightness:.1f}')
           PY
 
       - name: Update v0.1.1 boot proof
-        if: startsWith(github.ref, 'refs/tags/bootcheck-')
+        if: always() && startsWith(github.ref, 'refs/tags/bootcheck-')
         working-directory: builder
         env:
           GH_TOKEN: ${{ github.token }}
